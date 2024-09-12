@@ -5,7 +5,7 @@ use crate::{error::ApiError, utils::database::Filter};
 use super::Config;
 
 #[async_trait]
-pub trait DBRepository {
+pub trait DBRepository: Send + Sync {
     async fn edit(&self, config: Config) -> Result<Config, ApiError>;
     async fn find(&self, fileter: Filter) -> Result<Config, ApiError>;
 }

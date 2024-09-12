@@ -8,4 +8,5 @@ pub mod infrastructure;
 mod service;
 pub use service::*;
 
-pub mod api;
+mod api;
+pub use api::*;
