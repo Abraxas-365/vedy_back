@@ -1,0 +1,55 @@
+use async_trait::async_trait;
+use sqlx::Row;
+
+use crate::error::ApiError;
+use crate::modules::front::landing::config::port::DBRepository;
+use crate::modules::front::landing::config::Config;
+use crate::utils::database::{Filter, PostgresRepository};
+
+#[async_trait]
+impl DBRepository for PostgresRepository {
+    async fn edit(&self, config: Config) -> Result<Config, ApiError> {
+        let updated_config = sqlx::query(
+            r#"
+            UPDATE config
+            SET logo = $1, color = $2
+            WHERE tenant_id = $3
+            RETURNING *
+            "#,
+        )
+        .bind(&config.logo)
+        .bind(&config.color)
+        .bind(&config.tenant_id)
+        .fetch_one(&*self.pg_pool)
+        .await
+        .map_err(ApiError::DatabaseError)?;
+
+        Ok(Config {
+            id: updated_config.get("id"),
+            tenant_id: updated_config.get("tenant_id"),
+            logo: updated_config.get("logo"),
+            color: updated_config.get("color"),
+        })
+    }
+
+    async fn find(&self, filter: Filter) -> Result<Config, ApiError> {
+        let (where_clause, _args) = filter.build_for_sqlx();
+
+        let query = format!("SELECT * FROM config WHERE {} LIMIT 1", where_clause);
+
+        let config = sqlx::query(&query)
+            .fetch_one(&*self.pg_pool)
+            .await
+            .map_err(|e| match e {
+                sqlx::Error::RowNotFound => ApiError::NotFound("Config not found".to_string()),
+                _ => ApiError::DatabaseError(e),
+            })?;
+
+        Ok(Config {
+            id: config.get("id"),
+            tenant_id: config.get("tenant_id"),
+            logo: config.get("logo"),
+            color: config.get("color"),
+        })
+    }
+}

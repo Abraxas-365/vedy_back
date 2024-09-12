@@ -94,3 +94,83 @@ CREATE INDEX idx_tenants_auth_user_id ON tenants(auth_user_id);
 CREATE INDEX idx_properties_tenant_id ON properties(tenant_id);
 CREATE INDEX idx_property_features_property_id ON property_features(property_id);
 CREATE INDEX idx_property_images_property_id ON property_images(property_id);
+
+
+
+
+-- hero table
+CREATE TABLE hero (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    image VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create a function to update the updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger to automatically update the updated_at column
+CREATE TRIGGER update_hero_updated_at
+BEFORE UPDATE ON hero
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Config Table
+CREATE TABLE config (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+    logo VARCHAR(255) NOT NULL,
+    color VARCHAR(7) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create a function to update the updated_at column (if not already created)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger to automatically update the updated_at column
+CREATE TRIGGER update_config_updated_at
+BEFORE UPDATE ON config
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to create default hero and config entries
+CREATE OR REPLACE FUNCTION create_default_hero_and_config()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert default hero
+    INSERT INTO hero (tenant_id, title, description, image)
+    VALUES (NEW.id, 'Welcome to Our Real Estate Agency', 'We help you find your dream home', 'https://default-hero-image-url.com');
+
+    -- Insert default config
+    INSERT INTO config (tenant_id, logo, color)
+    VALUES (NEW.id, 'https://default-logo-url.com', '#000000');
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call the function when a new tenant is created
+CREATE TRIGGER create_hero_and_config_for_new_tenant
+AFTER INSERT ON tenants
+FOR EACH ROW
+EXECUTE FUNCTION create_default_hero_and_config();
+
+-- Create indexes for better query performance
+CREATE INDEX idx_hero_tenant_id ON hero(tenant_id);
+CREATE INDEX idx_config_tenant_id ON config(tenant_id);
