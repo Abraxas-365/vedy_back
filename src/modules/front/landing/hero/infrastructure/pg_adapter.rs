@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use sqlx::Row;
 
 use crate::error::ApiError;
-use crate::modules::hero::port::DBRepository;
-use crate::modules::hero::Hero;
+use crate::modules::front::landing::hero::port::DBRepository;
+use crate::modules::front::landing::hero::Hero;
 use crate::utils::database::{Filter, PostgresRepository};
 
 #[async_trait]
@@ -31,8 +31,6 @@ impl DBRepository for PostgresRepository {
             title: updated_hero.get("title"),
             description: updated_hero.get("description"),
             image: updated_hero.get("image"),
-            created_at: updated_hero.get("created_at"),
-            updated_at: updated_hero.get("updated_at"),
         })
     }
 
@@ -55,8 +53,6 @@ impl DBRepository for PostgresRepository {
             title: hero.get("title"),
             description: hero.get("description"),
             image: hero.get("image"),
-            created_at: hero.get("created_at"),
-            updated_at: hero.get("updated_at"),
         })
     }
 }

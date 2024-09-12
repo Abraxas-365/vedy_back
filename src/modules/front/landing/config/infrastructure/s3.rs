@@ -1,5 +1,6 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
-use chrono::Duration;
 
 use crate::{
     error::ApiError, modules::front::landing::config::port::BucketRepository,
