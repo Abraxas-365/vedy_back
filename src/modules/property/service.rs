@@ -63,7 +63,7 @@ impl Service {
     ) -> Result<Vec<String>, ApiError> {
         let results: Vec<Result<String, ApiError>> = stream::iter(0..n_links)
             .map(|_| {
-                let key = format!("tenants/tenant_{}/image_{}", tenant_id, Uuid::new_v4());
+                let key = format!("tenant_{}/properties/image_{}", tenant_id, Uuid::new_v4());
                 async move { self.bucket_repo.post_presigned_url(&key).await }
             })
             .buffer_unordered(10)

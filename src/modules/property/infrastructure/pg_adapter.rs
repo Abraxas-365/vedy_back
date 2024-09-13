@@ -339,23 +339,29 @@ impl DBRepository for PostgresRepository {
         filter: Filter,
         pagination: Pagination,
     ) -> Result<PaginatedRecord<PropertyWithImages>, ApiError> {
-        let (where_clause, args) = filter.build_for_sqlx();
+        let (where_clause, mut args) = filter.build_for_sqlx();
 
         let offset = (pagination.page - 1) * pagination.per_page;
 
         let query = format!(
             "SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
-             FROM properties p
-             LEFT JOIN property_images pi ON p.id = pi.property_id
-             WHERE {}
-             ORDER BY p.id
-             LIMIT {} OFFSET {}",
-            where_clause, pagination.per_page, offset
+         FROM properties p
+         LEFT JOIN property_images pi ON p.id = pi.property_id
+         WHERE {}
+         ORDER BY p.id
+         LIMIT ${} OFFSET ${}",
+            where_clause,
+            args.len() + 1,
+            args.len() + 2
         );
+
+        // Add LIMIT and OFFSET to args
+        args.push(Value::Int(pagination.per_page as i64));
+        args.push(Value::Int(offset as i64));
 
         let mut query_builder = sqlx::query(&query);
 
-        for arg in args.clone() {
+        for arg in args.iter() {
             query_builder = match arg {
                 Value::Int(i) => query_builder.bind(i),
                 Value::Float(f) => query_builder.bind(f),
@@ -441,7 +447,8 @@ impl DBRepository for PostgresRepository {
 
         let mut count_query_builder = sqlx::query_scalar(&count_query);
 
-        for arg in args {
+        for arg in args.iter().take(args.len() - 2) {
+            // Exclude LIMIT and OFFSET
             count_query_builder = match arg {
                 Value::Int(i) => count_query_builder.bind(i),
                 Value::Float(f) => count_query_builder.bind(f),

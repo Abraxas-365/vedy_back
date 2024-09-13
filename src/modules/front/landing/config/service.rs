@@ -27,11 +27,7 @@ impl Service {
 
 impl Service {
     pub async fn generate_post_presigned_urls(&self, tenant_id: i32) -> Result<String, ApiError> {
-        let key = format!(
-            "tenants_logos/tenant_{}/image_{}",
-            tenant_id,
-            Uuid::new_v4()
-        );
+        let key = format!("/tenant_{}/logo/image_{}", tenant_id, Uuid::new_v4());
         self.bucket_repo.post_presigned_url(&key).await
     }
 
