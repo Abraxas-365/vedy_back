@@ -4,7 +4,7 @@ use sqlx::Row;
 use crate::error::ApiError;
 use crate::modules::property::port::DBRepository;
 use crate::modules::property::{Property, PropertyImage, PropertyWithImages};
-use crate::utils::database::{Filter, PaginatedRecord, Pagination, PostgresRepository};
+use crate::utils::database::{Filter, PaginatedRecord, Pagination, PostgresRepository, Value};
 
 #[async_trait]
 impl DBRepository for PostgresRepository {
@@ -261,7 +261,7 @@ impl DBRepository for PostgresRepository {
     }
 
     async fn find(&self, filter: Filter) -> Result<PropertyWithImages, ApiError> {
-        let (where_clause, _args) = filter.build_for_sqlx();
+        let (where_clause, args) = filter.build_for_sqlx();
 
         let query = format!(
             "SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
@@ -272,7 +272,18 @@ impl DBRepository for PostgresRepository {
             where_clause
         );
 
-        let rows = sqlx::query(&query)
+        let mut query_builder = sqlx::query(&query);
+
+        for arg in args {
+            query_builder = match arg {
+                Value::Int(i) => query_builder.bind(i),
+                Value::Float(f) => query_builder.bind(f),
+                Value::String(s) => query_builder.bind(s),
+                Value::Bool(b) => query_builder.bind(b),
+            };
+        }
+
+        let rows = query_builder
             .fetch_all(&*self.pg_pool)
             .await
             .map_err(ApiError::DatabaseError)?;
@@ -328,7 +339,7 @@ impl DBRepository for PostgresRepository {
         filter: Filter,
         pagination: Pagination,
     ) -> Result<PaginatedRecord<PropertyWithImages>, ApiError> {
-        let (where_clause, _args) = filter.build_for_sqlx();
+        let (where_clause, args) = filter.build_for_sqlx();
 
         let offset = (pagination.page - 1) * pagination.per_page;
 
@@ -342,7 +353,18 @@ impl DBRepository for PostgresRepository {
             where_clause, pagination.per_page, offset
         );
 
-        let rows = sqlx::query(&query)
+        let mut query_builder = sqlx::query(&query);
+
+        for arg in args.clone() {
+            query_builder = match arg {
+                Value::Int(i) => query_builder.bind(i),
+                Value::Float(f) => query_builder.bind(f),
+                Value::String(s) => query_builder.bind(s),
+                Value::Bool(b) => query_builder.bind(b),
+            };
+        }
+
+        let rows = query_builder
             .fetch_all(&*self.pg_pool)
             .await
             .map_err(ApiError::DatabaseError)?;
@@ -416,7 +438,19 @@ impl DBRepository for PostgresRepository {
             "SELECT COUNT(DISTINCT p.id) FROM properties p WHERE {}",
             where_clause
         );
-        let total_items: i64 = sqlx::query_scalar(&count_query)
+
+        let mut count_query_builder = sqlx::query_scalar(&count_query);
+
+        for arg in args {
+            count_query_builder = match arg {
+                Value::Int(i) => count_query_builder.bind(i),
+                Value::Float(f) => count_query_builder.bind(f),
+                Value::String(s) => count_query_builder.bind(s),
+                Value::Bool(b) => count_query_builder.bind(b),
+            };
+        }
+
+        let total_items: i64 = count_query_builder
             .fetch_one(&*self.pg_pool)
             .await
             .map_err(ApiError::DatabaseError)?;

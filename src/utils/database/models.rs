@@ -112,14 +112,9 @@ impl Filter {
         self
     }
 
-    pub fn build_for_sqlx(
-        &self,
-    ) -> (
-        String,
-        Vec<Box<dyn sqlx::Encode<'_, Postgres> + Send + Sync>>,
-    ) {
+    pub fn build_for_sqlx(&self) -> (String, Vec<Value>) {
         let mut conditions = Vec::new();
-        let mut args: Vec<Box<dyn sqlx::Encode<'_, Postgres> + Send + Sync>> = Vec::new();
+        let mut args: Vec<Value> = Vec::new();
 
         for (field, condition) in &self.conditions {
             match condition {
@@ -168,7 +163,7 @@ impl Filter {
                 }
                 FilterCondition::Like(pattern) => {
                     conditions.push(format!("{} LIKE ${}", field, args.len() + 1));
-                    args.push(Box::new(pattern.clone()));
+                    args.push(Value::String(pattern.clone()));
                 }
             }
         }
@@ -183,13 +178,8 @@ impl Filter {
     }
 }
 
-fn value_to_encode(value: &Value) -> Box<dyn sqlx::Encode<'_, Postgres> + Send + Sync> {
-    match value {
-        Value::Int(i) => Box::new(*i),
-        Value::Float(f) => Box::new(*f),
-        Value::String(s) => Box::new(s.clone()),
-        Value::Bool(b) => Box::new(*b),
-    }
+fn value_to_encode(value: &Value) -> Value {
+    value.clone()
 }
 
 // Helper functions to create FilterConditions

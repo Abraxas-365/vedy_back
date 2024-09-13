@@ -4,7 +4,7 @@ use sqlx::Row;
 use crate::error::ApiError;
 use crate::modules::front::landing::config::port::DBRepository;
 use crate::modules::front::landing::config::Config;
-use crate::utils::database::{Filter, PostgresRepository};
+use crate::utils::database::{Filter, PostgresRepository, Value};
 
 #[async_trait]
 impl DBRepository for PostgresRepository {
@@ -33,11 +33,22 @@ impl DBRepository for PostgresRepository {
     }
 
     async fn find(&self, filter: Filter) -> Result<Config, ApiError> {
-        let (where_clause, _args) = filter.build_for_sqlx();
+        let (where_clause, args) = filter.build_for_sqlx();
 
         let query = format!("SELECT * FROM config WHERE {} LIMIT 1", where_clause);
 
-        let config = sqlx::query(&query)
+        let mut query_builder = sqlx::query(&query);
+
+        for arg in args {
+            query_builder = match arg {
+                Value::Int(i) => query_builder.bind(i),
+                Value::Float(f) => query_builder.bind(f),
+                Value::String(s) => query_builder.bind(s),
+                Value::Bool(b) => query_builder.bind(b),
+            };
+        }
+
+        let config = query_builder
             .fetch_one(&*self.pg_pool)
             .await
             .map_err(|e| match e {
