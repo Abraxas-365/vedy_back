@@ -5,7 +5,7 @@ use std::sync::Arc;
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use modules::{
-    front::landing::{config, hero},
+    front::landing::{config, feedback, hero},
     property, tenant,
 };
 use utils::s3;
@@ -26,7 +26,8 @@ async fn main() -> std::io::Result<()> {
     let property_service = Arc::new(property::Service::new(repo.clone(), bukcet_service.clone()));
     let tenant_service = Arc::new(tenant::Service::new(repo.clone()));
     let hero_service = Arc::new(hero::Service::new(repo.clone(), bukcet_service.clone()));
-    let config_service = Arc::new(hero::Service::new(repo.clone(), bukcet_service.clone()));
+    let config_service = Arc::new(config::Service::new(repo.clone(), bukcet_service.clone()));
+    let feedback_service = Arc::new(feedback::Service::new(repo.clone(), bukcet_service.clone()));
     let luci_service = Arc::new(utils::lucia::Service::new(repo.clone()));
 
     log::info!("Starting HTTP server on 0.0.0.0:80...");
@@ -39,10 +40,12 @@ async fn main() -> std::io::Result<()> {
             .configure(property::config)
             .configure(hero::config)
             .configure(config::config)
+            .configure(feedback::config)
             .app_data(web::Data::new(luci_service.clone()))
             .app_data(web::Data::new(property_service.clone()))
             .app_data(web::Data::new(tenant_service.clone()))
             .app_data(web::Data::new(config_service.clone()))
+            .app_data(web::Data::new(feedback_service.clone()))
             .app_data(web::Data::new(hero_service.clone()))
     })
     .bind("0.0.0.0:3000")?
