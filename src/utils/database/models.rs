@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use sqlx::Postgres;
 
 #[derive(Clone, Debug)]
 pub enum Value {

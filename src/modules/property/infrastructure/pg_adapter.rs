@@ -269,7 +269,7 @@ impl DBRepository for PostgresRepository {
              LEFT JOIN property_images pi ON p.id = pi.property_id
              WHERE {}
              LIMIT 1",
-            where_clause
+            where_clause.replace("id", "p.id")
         );
 
         let mut query_builder = sqlx::query(&query);
