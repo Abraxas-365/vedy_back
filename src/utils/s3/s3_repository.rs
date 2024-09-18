@@ -59,4 +59,16 @@ impl S3Repository {
 
         Ok(presigned_req.uri().to_string())
     }
+
+    pub async fn delete_object(&self, key: &str) -> Result<(), ApiError> {
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| ApiError::UnexpectedError(e.to_string()))?;
+
+        Ok(())
+    }
 }

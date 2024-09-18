@@ -1,6 +1,7 @@
 use actix_web::web;
 use handler::{
-    create_property, generate_presigned_urls, get_property_by_id, get_tenant_properties,
+    create_property, delete_property, generate_presigned_urls, get_property_by_id,
+    get_tenant_properties,
 };
 
 mod handler;
@@ -9,7 +10,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/properties")
             .route("", web::post().to(create_property))
-            .route("/{property_id}", web::get().to(get_property_by_id)),
+            .route("/{property_id}", web::get().to(get_property_by_id))
+            .route("/{property_id}", web::delete().to(delete_property)),
     )
     .service(
         web::scope("/tenants/{tenant_id}")

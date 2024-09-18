@@ -34,9 +34,12 @@ pub trait DBRepository: Send + Sync {
         filter: Filter,
         pagination: Pagination,
     ) -> Result<PaginatedRecord<PropertyWithImages>, ApiError>;
+
+    async fn delete(&self, id: i32) -> Result<PropertyWithImages, ApiError>;
 }
 
 #[async_trait]
 pub trait BucketRepository: Send + Sync {
     async fn post_presigned_url(&self, key: &str) -> Result<String, ApiError>;
+    async fn delete_images(&self, images: &[String]) -> Result<Vec<String>, ApiError>;
 }

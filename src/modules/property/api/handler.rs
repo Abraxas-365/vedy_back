@@ -116,3 +116,11 @@ pub async fn generate_presigned_urls(
         .await?;
     Ok(HttpResponse::Ok().json(urls))
 }
+
+pub async fn delete_property(
+    service: web::Data<Arc<Service>>,
+    property_id: web::Path<i32>,
+) -> Result<HttpResponse, ApiError> {
+    let deleted_property = service.delete_property(*property_id).await?;
+    Ok(HttpResponse::Ok().json(deleted_property))
+}

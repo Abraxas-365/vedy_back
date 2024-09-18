@@ -56,6 +56,22 @@ impl Service {
         self.db_repo.find(filter).await
     }
 
+    pub async fn delete_property(&self, id: i32) -> Result<Property, ApiError> {
+        let deleted_property = self.db_repo.delete(id).await?;
+        let image_urls: Vec<String> = deleted_property
+            .images
+            .iter()
+            .map(|image| image.image_url.clone())
+            .collect();
+
+        //Todo: send the errors to a queue
+        if let Err(e) = self.bucket_repo.delete_images(&image_urls).await {
+            eprintln!("Failed to delete images from bucket: {:?}", e);
+        }
+
+        Ok(deleted_property.property)
+    }
+
     pub async fn generate_post_presigned_urls(
         &self,
         tenant_id: i32,

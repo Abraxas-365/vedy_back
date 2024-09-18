@@ -469,4 +469,80 @@ impl DBRepository for PostgresRepository {
             pagination.per_page,
         ))
     }
+
+    async fn delete(&self, id: i32) -> Result<PropertyWithImages, ApiError> {
+        let mut tx = self
+            .pg_pool
+            .begin()
+            .await
+            .map_err(ApiError::DatabaseError)?;
+
+        // Fetch the property to return it after deletion
+        let property_row = sqlx::query(
+            r#"
+            SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
+            FROM properties p
+            LEFT JOIN property_images pi ON p.id = pi.property_id
+            WHERE p.id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(ApiError::DatabaseError)?;
+
+        if property_row.is_empty() {
+            return Err(ApiError::NotFound("Property not found".to_string()));
+        }
+
+        let property = Property {
+            id: property_row[0].get("id"),
+            tenant_id: property_row[0].get("tenant_id"),
+            title: property_row[0].get("title"),
+            description: property_row[0].get("description"),
+            property_type: property_row[0].get("property_type"),
+            status: property_row[0].get("status"),
+            price: property_row[0].get("price"),
+            currency: property_row[0].get("currency"),
+            bedrooms: property_row[0].get("bedrooms"),
+            bathrooms: property_row[0].get("bathrooms"),
+            parking_spaces: property_row[0].get("parking_spaces"),
+            total_area: property_row[0].get("total_area"),
+            built_area: property_row[0].get("built_area"),
+            year_built: property_row[0].get("year_built"),
+            address: property_row[0].get("address"),
+            city: property_row[0].get("city"),
+            state: property_row[0].get("state"),
+            country: property_row[0].get("country"),
+            google_maps_url: property_row[0].get("google_maps_url"),
+            created_at: property_row[0].get("created_at"),
+            updated_at: property_row[0].get("updated_at"),
+        };
+
+        let images = property_row
+            .into_iter()
+            .filter_map(|row| {
+                let image_id: Option<i32> = row.get("image_id");
+                image_id.map(|_| PropertyImage {
+                    id: row.get("image_id"),
+                    property_id: row.get("id"),
+                    image_url: row.get("image_url"),
+                    is_primary: row.get("is_primary"),
+                    created_at: row.get("created_at"),
+                    updated_at: row.get("updated_at"),
+                })
+            })
+            .collect();
+
+        // Delete property
+        sqlx::query("DELETE FROM properties WHERE id = $1")
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::DatabaseError)?;
+
+        tx.commit().await.map_err(ApiError::DatabaseError)?;
+
+        Ok(PropertyWithImages { property, images })
+    }
 }
