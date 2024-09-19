@@ -41,6 +41,7 @@ async fn main() -> std::io::Result<()> {
             .configure(hero::config)
             .configure(config::config)
             .configure(feedback::config)
+            .configure(tenant::config)
             .app_data(web::Data::new(luci_service.clone()))
             .app_data(web::Data::new(property_service.clone()))
             .app_data(web::Data::new(tenant_service.clone()))
