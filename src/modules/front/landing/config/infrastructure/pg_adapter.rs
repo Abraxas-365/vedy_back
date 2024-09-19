@@ -22,7 +22,13 @@ impl DBRepository for PostgresRepository {
         .bind(&config.tenant_id)
         .fetch_one(&*self.pg_pool)
         .await
-        .map_err(ApiError::DatabaseError)?;
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => ApiError::NotFound(format!(
+                "Config for tenant_id {} not found",
+                config.tenant_id
+            )),
+            _ => ApiError::DatabaseError(e),
+        })?;
 
         Ok(Config {
             id: updated_config.get("id"),

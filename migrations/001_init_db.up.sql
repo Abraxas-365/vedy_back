@@ -28,6 +28,33 @@ CREATE TABLE tenants (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create a function to set the created_at and updated_at timestamps
+CREATE OR REPLACE FUNCTION set_timestamps()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.created_at = CURRENT_TIMESTAMP;
+        NEW.updated_at = CURRENT_TIMESTAMP;
+    ELSIF TG_OP = 'UPDATE' THEN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger for the tenants table
+CREATE TRIGGER set_timestamps_tenants
+BEFORE INSERT OR UPDATE ON tenants
+FOR EACH ROW
+EXECUTE FUNCTION set_timestamps();
+
+-- Repeat the same for other tables if needed
+-- For example, for the properties table:
+CREATE TRIGGER set_timestamps_properties
+BEFORE INSERT OR UPDATE ON properties
+FOR EACH ROW
+EXECUTE FUNCTION set_timestamps();
+
 -- Properties
 CREATE TABLE properties (
     id SERIAL PRIMARY KEY,

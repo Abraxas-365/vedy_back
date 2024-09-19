@@ -55,7 +55,10 @@ impl DBRepository for PostgresRepository {
         .bind(&feedback.tenant_id)
         .fetch_one(&*self.pg_pool)
         .await
-        .map_err(ApiError::DatabaseError)?;
+        .map_err(|err| match err {
+            sqlx::Error::RowNotFound => ApiError::NotFound(format!("Feedback with id {} not found", feedback.id)),
+            _ => ApiError::DatabaseError(err.into()),
+        })?;
 
         Ok(Feedback {
             id: updated_feedback.get("id"),
@@ -134,5 +137,59 @@ impl DBRepository for PostgresRepository {
             pagination.page,
             pagination.per_page,
         ))
+    }
+
+    async fn delete(&self, id: i32, tenant_id: i32) -> Result<Feedback, ApiError> {
+        let mut tx = self
+            .pg_pool
+            .begin()
+            .await
+            .map_err(ApiError::DatabaseError)?;
+
+        // Fetch the feedback to return it after deletion
+        let feedback_row = sqlx::query(
+            r#"
+            SELECT * FROM feedback
+            WHERE id = $1 AND tenant_id = $2
+            "#,
+        )
+        .bind(id)
+        .bind(tenant_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|err| match err {
+            sqlx::Error::RowNotFound => {
+                ApiError::NotFound(format!("Feedback with id {} not found", id))
+            }
+            _ => ApiError::DatabaseError(err.into()),
+        })?;
+
+        let feedback = Feedback {
+            id: feedback_row.get("id"),
+            tenant_id: feedback_row.get("tenant_id"),
+            property_image: feedback_row.get("property_image"),
+            customer_image: feedback_row.get("customer_image"),
+            customer_name: feedback_row.get("customer_name"),
+            customer_review: feedback_row.get("customer_review"),
+            description: feedback_row.get("description"),
+        };
+
+        // Delete feedback
+        let result = sqlx::query("DELETE FROM feedback WHERE id = $1 AND tenant_id = $2")
+            .bind(id)
+            .bind(tenant_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(ApiError::DatabaseError)?;
+
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound(
+                "Feedback not found or tenant mismatch".to_string(),
+            ));
+        }
+
+        tx.commit().await.map_err(ApiError::DatabaseError)?;
+
+        Ok(feedback)
     }
 }

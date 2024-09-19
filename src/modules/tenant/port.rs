@@ -7,4 +7,5 @@ use super::Tenant;
 #[async_trait]
 pub trait DBRepository: Send + Sync {
     async fn find_by_user_id(&self, id: &str) -> Result<Tenant, ApiError>;
+    async fn update(&self, tenant: Tenant) -> Result<Tenant, ApiError>;
 }

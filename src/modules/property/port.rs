@@ -21,7 +21,7 @@ pub trait DBRepository: Send + Sync {
         images: Vec<PropertyImage>,
     ) -> Result<Vec<PropertyImage>, ApiError>;
 
-    async fn udate_property(
+    async fn update_property(
         &self,
         id: i32,
         property: Property,

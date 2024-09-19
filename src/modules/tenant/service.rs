@@ -15,4 +15,8 @@ impl Service {
     pub async fn find_by_user_id(&self, id: &str) -> Result<Tenant, ApiError> {
         self.db_port.find_by_user_id(id).await
     }
+
+    pub async fn update_tenant(&self, tenant: Tenant) -> Result<Tenant, ApiError> {
+        self.db_port.update(tenant).await
+    }
 }

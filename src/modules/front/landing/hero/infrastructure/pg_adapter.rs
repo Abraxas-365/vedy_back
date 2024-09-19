@@ -23,7 +23,12 @@ impl DBRepository for PostgresRepository {
         .bind(&hero.tenant_id)
         .fetch_one(&*self.pg_pool)
         .await
-        .map_err(ApiError::DatabaseError)?;
+        .map_err(|e| match e {
+            sqlx::Error::RowNotFound => {
+                ApiError::NotFound(format!("Hero for tenant_id {} not found", hero.tenant_id))
+            }
+            _ => ApiError::DatabaseError(e),
+        })?;
 
         Ok(Hero {
             id: updated_hero.get("id"),

@@ -123,6 +123,21 @@ impl DBRepository for PostgresRepository {
             .await
             .map_err(ApiError::DatabaseError)?;
 
+        // Check if the property exists
+        let property_exists =
+            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM properties WHERE id = $1)")
+                .bind(property_id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(ApiError::DatabaseError)?;
+
+        if !property_exists {
+            return Err(ApiError::NotFound(format!(
+                "Property with id {} not found",
+                property_id
+            )));
+        }
+
         // Delete existing images
         sqlx::query("DELETE FROM property_images WHERE property_id = $1")
             .bind(&property_id)
@@ -162,7 +177,7 @@ impl DBRepository for PostgresRepository {
         Ok(inserted_images)
     }
 
-    async fn udate_property(
+    async fn update_property(
         &self,
         id: i32,
         property: Property,
@@ -207,7 +222,12 @@ impl DBRepository for PostgresRepository {
         .bind(&id)
         .fetch_one(&mut *tx)
         .await
-        .map_err(ApiError::DatabaseError)?;
+        .map_err(|err| match err {
+            sqlx::Error::RowNotFound => {
+                ApiError::NotFound(format!("Property with id {} not found", id))
+            }
+            _ => ApiError::DatabaseError(err.into()),
+        })?;
 
         let updated_property = Property {
             id: updated_property.get("id"),
