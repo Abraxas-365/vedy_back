@@ -35,7 +35,7 @@ pub trait DBRepository: Send + Sync {
         pagination: Pagination,
     ) -> Result<PaginatedRecord<PropertyWithImages>, ApiError>;
 
-    async fn delete(&self, id: i32) -> Result<PropertyWithImages, ApiError>;
+    async fn delete(&self, id: i32, tenant_id: i32) -> Result<PropertyWithImages, ApiError>;
 }
 
 #[async_trait]

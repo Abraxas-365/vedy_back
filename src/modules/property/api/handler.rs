@@ -119,8 +119,26 @@ pub async fn generate_presigned_urls(
 
 pub async fn delete_property(
     service: web::Data<Arc<Service>>,
+    lucia_service: web::Data<Arc<lucia::Service>>,
+    tenant_service: web::Data<Arc<tenant::Service>>,
     property_id: web::Path<i32>,
+    req_headers: HttpRequest,
 ) -> Result<HttpResponse, ApiError> {
-    let deleted_property = service.delete_property(*property_id).await?;
+    let basic_auth_header = req_headers
+        .headers()
+        .get("Authorization")
+        .and_then(|header_value| header_value.to_str().ok());
+
+    if basic_auth_header.is_none() {
+        return Err(ApiError::Unauthorized(
+            "Missing Authorization header".into(),
+        ));
+    }
+    let session = lucia_service
+        .get_session(basic_auth_header.unwrap())
+        .await?;
+
+    let tenant = tenant_service.find_by_user_id(&session.user_id).await?;
+    let deleted_property = service.delete_property(*property_id, tenant.id).await?;
     Ok(HttpResponse::Ok().json(deleted_property))
 }

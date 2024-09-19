@@ -56,8 +56,8 @@ impl Service {
         self.db_repo.find(filter).await
     }
 
-    pub async fn delete_property(&self, id: i32) -> Result<Property, ApiError> {
-        let deleted_property = self.db_repo.delete(id).await?;
+    pub async fn delete_property(&self, id: i32, tenant_id: i32) -> Result<Property, ApiError> {
+        let deleted_property = self.db_repo.delete(id, tenant_id).await?;
         let image_urls: Vec<String> = deleted_property
             .images
             .iter()

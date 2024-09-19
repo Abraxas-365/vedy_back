@@ -470,7 +470,7 @@ impl DBRepository for PostgresRepository {
         ))
     }
 
-    async fn delete(&self, id: i32) -> Result<PropertyWithImages, ApiError> {
+    async fn delete(&self, id: i32, tenant_id: i32) -> Result<PropertyWithImages, ApiError> {
         let mut tx = self
             .pg_pool
             .begin()
@@ -483,16 +483,19 @@ impl DBRepository for PostgresRepository {
             SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
             FROM properties p
             LEFT JOIN property_images pi ON p.id = pi.property_id
-            WHERE p.id = $1
+            WHERE p.id = $1 AND p.tenant_id = $2
             "#,
         )
         .bind(id)
+        .bind(tenant_id)
         .fetch_all(&mut *tx)
         .await
         .map_err(ApiError::DatabaseError)?;
 
         if property_row.is_empty() {
-            return Err(ApiError::NotFound("Property not found".to_string()));
+            return Err(ApiError::NotFound(
+                "Property not found or tenant mismatch".to_string(),
+            ));
         }
 
         let property = Property {
@@ -519,7 +522,7 @@ impl DBRepository for PostgresRepository {
             updated_at: property_row[0].get("updated_at"),
         };
 
-        let images = property_row
+        let images: Vec<PropertyImage> = property_row
             .into_iter()
             .filter_map(|row| {
                 let image_id: Option<i32> = row.get("image_id");
@@ -535,11 +538,18 @@ impl DBRepository for PostgresRepository {
             .collect();
 
         // Delete property
-        sqlx::query("DELETE FROM properties WHERE id = $1")
+        let result = sqlx::query("DELETE FROM properties WHERE id = $1 AND tenant_id = $2")
             .bind(id)
+            .bind(tenant_id)
             .execute(&mut *tx)
             .await
             .map_err(ApiError::DatabaseError)?;
+
+        if result.rows_affected() == 0 {
+            return Err(ApiError::NotFound(
+                "Property not found or tenant mismatch".to_string(),
+            ));
+        }
 
         tx.commit().await.map_err(ApiError::DatabaseError)?;
 
