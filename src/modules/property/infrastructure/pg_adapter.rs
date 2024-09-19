@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use sqlx::FromRow;
 use sqlx::Row;
 
 use crate::error::ApiError;
@@ -11,7 +12,7 @@ impl DBRepository for PostgresRepository {
     async fn create(
         &self,
         property: Property,
-        images: Vec<PropertyImage>,
+        images: &[PropertyImage],
     ) -> Result<PropertyWithImages, ApiError> {
         let mut tx = self
             .pg_pool
@@ -20,14 +21,14 @@ impl DBRepository for PostgresRepository {
             .map_err(ApiError::DatabaseError)?;
 
         // Insert property
-        let inserted_property = sqlx::query(
+        let inserted_property = sqlx::query_as::<_, Property>(
             r#"
             INSERT INTO properties (
                 tenant_id, title, description, property_type, status, price, currency,
                 bedrooms, bathrooms, parking_spaces, total_area, built_area, year_built,
-                address, city, state, country, google_maps_url
+                address, city, state, country, google_maps_url, amenities
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             RETURNING *
             "#,
         )
@@ -49,38 +50,15 @@ impl DBRepository for PostgresRepository {
         .bind(&property.state)
         .bind(&property.country)
         .bind(&property.google_maps_url)
+        .bind(&property.amenities)
         .fetch_one(&mut *tx)
         .await
         .map_err(ApiError::DatabaseError)?;
 
-        let inserted_property = Property {
-            id: inserted_property.get("id"),
-            tenant_id: inserted_property.get("tenant_id"),
-            title: inserted_property.get("title"),
-            description: inserted_property.get("description"),
-            property_type: inserted_property.get("property_type"),
-            status: inserted_property.get("status"),
-            price: inserted_property.get("price"),
-            currency: inserted_property.get("currency"),
-            bedrooms: inserted_property.get("bedrooms"),
-            bathrooms: inserted_property.get("bathrooms"),
-            parking_spaces: inserted_property.get("parking_spaces"),
-            total_area: inserted_property.get("total_area"),
-            built_area: inserted_property.get("built_area"),
-            year_built: inserted_property.get("year_built"),
-            address: inserted_property.get("address"),
-            city: inserted_property.get("city"),
-            state: inserted_property.get("state"),
-            country: inserted_property.get("country"),
-            google_maps_url: inserted_property.get("google_maps_url"),
-            created_at: inserted_property.get("created_at"),
-            updated_at: inserted_property.get("updated_at"),
-        };
-
         // Insert images
         let mut inserted_images = Vec::new();
         for image in images {
-            let inserted_image = sqlx::query(
+            let inserted_image = sqlx::query_as::<_, PropertyImage>(
                 r#"
                 INSERT INTO property_images (property_id, image_url, is_primary)
                 VALUES ($1, $2, $3)
@@ -94,14 +72,7 @@ impl DBRepository for PostgresRepository {
             .await
             .map_err(ApiError::DatabaseError)?;
 
-            inserted_images.push(PropertyImage {
-                id: inserted_image.get("id"),
-                property_id: inserted_image.get("property_id"),
-                image_url: inserted_image.get("image_url"),
-                is_primary: inserted_image.get("is_primary"),
-                created_at: inserted_image.get("created_at"),
-                updated_at: inserted_image.get("updated_at"),
-            });
+            inserted_images.push(inserted_image);
         }
 
         tx.commit().await.map_err(ApiError::DatabaseError)?;
@@ -115,7 +86,7 @@ impl DBRepository for PostgresRepository {
     async fn edit_property_images(
         &self,
         property_id: i32,
-        images: Vec<PropertyImage>,
+        images: &[PropertyImage],
     ) -> Result<Vec<PropertyImage>, ApiError> {
         let mut tx = self
             .pg_pool
@@ -148,7 +119,7 @@ impl DBRepository for PostgresRepository {
         // Insert new images
         let mut inserted_images = Vec::new();
         for image in images {
-            let inserted_image = sqlx::query(
+            let inserted_image = sqlx::query_as::<_, PropertyImage>(
                 r#"
                 INSERT INTO property_images (property_id, image_url, is_primary)
                 VALUES ($1, $2, $3)
@@ -162,14 +133,7 @@ impl DBRepository for PostgresRepository {
             .await
             .map_err(ApiError::DatabaseError)?;
 
-            inserted_images.push(PropertyImage {
-                id: inserted_image.get("id"),
-                property_id: inserted_image.get("property_id"),
-                image_url: inserted_image.get("image_url"),
-                is_primary: inserted_image.get("is_primary"),
-                created_at: inserted_image.get("created_at"),
-                updated_at: inserted_image.get("updated_at"),
-            });
+            inserted_images.push(inserted_image);
         }
 
         tx.commit().await.map_err(ApiError::DatabaseError)?;
@@ -177,11 +141,7 @@ impl DBRepository for PostgresRepository {
         Ok(inserted_images)
     }
 
-    async fn update_property(
-        &self,
-        id: i32,
-        property: Property,
-    ) -> Result<PropertyWithImages, ApiError> {
+    async fn update_property(&self, property: Property) -> Result<PropertyWithImages, ApiError> {
         let mut tx = self
             .pg_pool
             .begin()
@@ -189,15 +149,15 @@ impl DBRepository for PostgresRepository {
             .map_err(ApiError::DatabaseError)?;
 
         // Update property
-        let updated_property = sqlx::query(
+        let updated_property = sqlx::query_as::<_, Property>(
             r#"
             UPDATE properties
             SET tenant_id = $1, title = $2, description = $3, property_type = $4,
                 status = $5, price = $6, currency = $7, bedrooms = $8, bathrooms = $9,
                 parking_spaces = $10, total_area = $11, built_area = $12, year_built = $13,
                 address = $14, city = $15, state = $16, country = $17, google_maps_url = $18,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $19
+                amenities = $19, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $20
             RETURNING *
             "#,
         )
@@ -219,58 +179,25 @@ impl DBRepository for PostgresRepository {
         .bind(&property.state)
         .bind(&property.country)
         .bind(&property.google_maps_url)
-        .bind(&id)
+        .bind(&property.amenities)
+        .bind(&property.id)
         .fetch_one(&mut *tx)
         .await
         .map_err(|err| match err {
             sqlx::Error::RowNotFound => {
-                ApiError::NotFound(format!("Property with id {} not found", id))
+                ApiError::NotFound(format!("Property with id {} not found", property.id))
             }
-            _ => ApiError::DatabaseError(err.into()),
+            _ => ApiError::DatabaseError(err),
         })?;
 
-        let updated_property = Property {
-            id: updated_property.get("id"),
-            tenant_id: updated_property.get("tenant_id"),
-            title: updated_property.get("title"),
-            description: updated_property.get("description"),
-            property_type: updated_property.get("property_type"),
-            status: updated_property.get("status"),
-            price: updated_property.get("price"),
-            currency: updated_property.get("currency"),
-            bedrooms: updated_property.get("bedrooms"),
-            bathrooms: updated_property.get("bathrooms"),
-            parking_spaces: updated_property.get("parking_spaces"),
-            total_area: updated_property.get("total_area"),
-            built_area: updated_property.get("built_area"),
-            year_built: updated_property.get("year_built"),
-            address: updated_property.get("address"),
-            city: updated_property.get("city"),
-            state: updated_property.get("state"),
-            country: updated_property.get("country"),
-            google_maps_url: updated_property.get("google_maps_url"),
-            created_at: updated_property.get("created_at"),
-            updated_at: updated_property.get("updated_at"),
-        };
-
         // Fetch images
-        let images = sqlx::query("SELECT * FROM property_images WHERE property_id = $1")
-            .bind(&id)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(ApiError::DatabaseError)?;
-
-        let images = images
-            .into_iter()
-            .map(|row| PropertyImage {
-                id: row.get("id"),
-                property_id: row.get("property_id"),
-                image_url: row.get("image_url"),
-                is_primary: row.get("is_primary"),
-                created_at: row.get("created_at"),
-                updated_at: row.get("updated_at"),
-            })
-            .collect();
+        let images = sqlx::query_as::<_, PropertyImage>(
+            "SELECT * FROM property_images WHERE property_id = $1",
+        )
+        .bind(&property.id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(ApiError::DatabaseError)?;
 
         tx.commit().await.map_err(ApiError::DatabaseError)?;
 
@@ -312,42 +239,16 @@ impl DBRepository for PostgresRepository {
             return Err(ApiError::NotFound("Property not found".to_string()));
         }
 
-        let property = Property {
-            id: rows[0].get("id"),
-            tenant_id: rows[0].get("tenant_id"),
-            title: rows[0].get("title"),
-            description: rows[0].get("description"),
-            property_type: rows[0].get("property_type"),
-            status: rows[0].get("status"),
-            price: rows[0].get("price"),
-            currency: rows[0].get("currency"),
-            bedrooms: rows[0].get("bedrooms"),
-            bathrooms: rows[0].get("bathrooms"),
-            parking_spaces: rows[0].get("parking_spaces"),
-            total_area: rows[0].get("total_area"),
-            built_area: rows[0].get("built_area"),
-            year_built: rows[0].get("year_built"),
-            address: rows[0].get("address"),
-            city: rows[0].get("city"),
-            state: rows[0].get("state"),
-            country: rows[0].get("country"),
-            google_maps_url: rows[0].get("google_maps_url"),
-            created_at: rows[0].get("created_at"),
-            updated_at: rows[0].get("updated_at"),
-        };
+        let property: Property =
+            Property::from_row(&rows[0]).map_err(|e| ApiError::DatabaseError(e.into()))?;
 
-        let images = rows
+        let images: Vec<PropertyImage> = rows
             .into_iter()
             .filter_map(|row| {
                 let image_id: Option<i32> = row.get("image_id");
-                image_id.map(|_| PropertyImage {
-                    id: row.get("image_id"),
-                    property_id: row.get("id"),
-                    image_url: row.get("image_url"),
-                    is_primary: row.get("is_primary"),
-                    created_at: row.get("created_at"),
-                    updated_at: row.get("updated_at"),
-                })
+                image_id
+                    .map(|_| PropertyImage::from_row(&row).ok())
+                    .flatten()
             })
             .collect();
 
@@ -400,40 +301,13 @@ impl DBRepository for PostgresRepository {
         let mut current_images = Vec::new();
 
         for row in rows {
-            let property = Property {
-                id: row.get("id"),
-                tenant_id: row.get("tenant_id"),
-                title: row.get("title"),
-                description: row.get("description"),
-                property_type: row.get("property_type"),
-                status: row.get("status"),
-                price: row.get("price"),
-                currency: row.get("currency"),
-                bedrooms: row.get("bedrooms"),
-                bathrooms: row.get("bathrooms"),
-                parking_spaces: row.get("parking_spaces"),
-                total_area: row.get("total_area"),
-                built_area: row.get("built_area"),
-                year_built: row.get("year_built"),
-                address: row.get("address"),
-                city: row.get("city"),
-                state: row.get("state"),
-                country: row.get("country"),
-                google_maps_url: row.get("google_maps_url"),
-                created_at: row.get("created_at"),
-                updated_at: row.get("updated_at"),
-            };
+            let property =
+                Property::from_row(&row).map_err(|e| ApiError::DatabaseError(e.into()))?;
 
-            let image: Option<PropertyImage> =
-                row.get::<Option<i32>, _>("image_id")
-                    .map(|_| PropertyImage {
-                        id: row.get("image_id"),
-                        property_id: row.get("id"),
-                        image_url: row.get("image_url"),
-                        is_primary: row.get("is_primary"),
-                        created_at: row.get("created_at"),
-                        updated_at: row.get("updated_at"),
-                    });
+            let image: Option<PropertyImage> = row
+                .get::<Option<i32>, _>("image_id")
+                .map(|_| PropertyImage::from_row(&row).ok())
+                .flatten();
 
             if let Some(current) = &current_property {
                 if current.id != property.id {
@@ -518,42 +392,16 @@ impl DBRepository for PostgresRepository {
             ));
         }
 
-        let property = Property {
-            id: property_row[0].get("id"),
-            tenant_id: property_row[0].get("tenant_id"),
-            title: property_row[0].get("title"),
-            description: property_row[0].get("description"),
-            property_type: property_row[0].get("property_type"),
-            status: property_row[0].get("status"),
-            price: property_row[0].get("price"),
-            currency: property_row[0].get("currency"),
-            bedrooms: property_row[0].get("bedrooms"),
-            bathrooms: property_row[0].get("bathrooms"),
-            parking_spaces: property_row[0].get("parking_spaces"),
-            total_area: property_row[0].get("total_area"),
-            built_area: property_row[0].get("built_area"),
-            year_built: property_row[0].get("year_built"),
-            address: property_row[0].get("address"),
-            city: property_row[0].get("city"),
-            state: property_row[0].get("state"),
-            country: property_row[0].get("country"),
-            google_maps_url: property_row[0].get("google_maps_url"),
-            created_at: property_row[0].get("created_at"),
-            updated_at: property_row[0].get("updated_at"),
-        };
+        let property =
+            Property::from_row(&property_row[0]).map_err(|e| ApiError::DatabaseError(e.into()))?;
 
         let images: Vec<PropertyImage> = property_row
             .into_iter()
             .filter_map(|row| {
                 let image_id: Option<i32> = row.get("image_id");
-                image_id.map(|_| PropertyImage {
-                    id: row.get("image_id"),
-                    property_id: row.get("id"),
-                    image_url: row.get("image_url"),
-                    is_primary: row.get("is_primary"),
-                    created_at: row.get("created_at"),
-                    updated_at: row.get("updated_at"),
-                })
+                image_id
+                    .map(|_| PropertyImage::from_row(&row).ok())
+                    .flatten()
             })
             .collect();
 

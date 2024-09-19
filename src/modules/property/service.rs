@@ -31,12 +31,12 @@ impl Service {
         property: Property,
         images_urls: Vec<String>,
     ) -> Result<PropertyWithImages, ApiError> {
-        let images = images_urls
+        let images: Vec<PropertyImage> = images_urls
             .into_iter()
             .map(|url| PropertyImage::new(property.id, &url, false))
             .collect();
 
-        self.db_repo.create(property, images).await
+        self.db_repo.create(property, &images).await
     }
 
     pub async fn find_all_tenant_properties(
@@ -70,6 +70,24 @@ impl Service {
         }
 
         Ok(deleted_property.property)
+    }
+
+    pub async fn update_property(
+        &self,
+        property: Property,
+        property_images: &[PropertyImage],
+    ) -> Result<PropertyWithImages, ApiError> {
+        let new_image = self
+            .db_repo
+            .edit_property_images(property.id, property_images)
+            .await?;
+
+        let new_property = self.db_repo.update_property(property).await?;
+
+        Ok(PropertyWithImages {
+            property: new_property.property,
+            images: new_image,
+        })
     }
 
     pub async fn generate_post_presigned_urls(

@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -23,8 +22,7 @@ pub struct Property {
     pub state: Option<String>,
     pub country: Option<String>,
     pub google_maps_url: Option<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
+    pub amenities: Option<Vec<String>>,
 }
 
 impl Property {
@@ -46,6 +44,7 @@ impl Property {
         city: Option<T>,
         state: Option<T>,
         country: Option<T>,
+        amenities: Option<Vec<String>>,
         google_maps_url: Option<T>,
     ) -> Self
     where
@@ -72,8 +71,7 @@ impl Property {
             state: state.map(|s| s.as_ref().to_string()),
             country: country.map(|s| s.as_ref().to_string()),
             google_maps_url: google_maps_url.map(|s| s.as_ref().to_string()),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            amenities,
         }
     }
 }
@@ -84,8 +82,6 @@ pub struct PropertyImage {
     pub property_id: i32,
     pub image_url: String,
     pub is_primary: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 impl PropertyImage {
@@ -95,8 +91,6 @@ impl PropertyImage {
             property_id,
             image_url: image_url.into(),
             is_primary,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
         }
     }
 }

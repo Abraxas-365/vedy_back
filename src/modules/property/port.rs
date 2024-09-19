@@ -12,20 +12,16 @@ pub trait DBRepository: Send + Sync {
     async fn create(
         &self,
         property: Property,
-        images: Vec<PropertyImage>,
+        images: &[PropertyImage],
     ) -> Result<PropertyWithImages, ApiError>;
 
     async fn edit_property_images(
         &self,
         property_id: i32,
-        images: Vec<PropertyImage>,
+        images: &[PropertyImage],
     ) -> Result<Vec<PropertyImage>, ApiError>;
 
-    async fn update_property(
-        &self,
-        id: i32,
-        property: Property,
-    ) -> Result<PropertyWithImages, ApiError>;
+    async fn update_property(&self, property: Property) -> Result<PropertyWithImages, ApiError>;
 
     async fn find(&self, filter: Filter) -> Result<PropertyWithImages, ApiError>;
 

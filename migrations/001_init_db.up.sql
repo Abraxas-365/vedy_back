@@ -76,18 +76,11 @@ CREATE TABLE properties (
     state VARCHAR(100),
     country VARCHAR(100),
     google_maps_url TEXT,
+    amenities TEXT[],  -- Array of text to store amenities
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Property Features
-CREATE TABLE property_features (
-    id SERIAL PRIMARY KEY,
-    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    feature VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Property Images
 CREATE TABLE property_images (
@@ -99,20 +92,6 @@ CREATE TABLE property_images (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Amenities
-CREATE TABLE amenities (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Property Amenities (Many-to-Many relationship)
-CREATE TABLE property_amenities (
-    property_id INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    amenity_id INTEGER NOT NULL REFERENCES amenities(id) ON DELETE CASCADE,
-    PRIMARY KEY (property_id, amenity_id)
-);
 
 -- Create indexes for better query performance
 CREATE INDEX idx_auth_user_email ON auth_user(email);
@@ -224,3 +203,32 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Create an index for better query performance
 CREATE INDEX idx_feedback_tenant_id ON feedback(tenant_id);
+
+
+
+-- Create a function to set the created_at and updated_at timestamps
+CREATE OR REPLACE FUNCTION set_timestamps()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.created_at = CURRENT_TIMESTAMP;
+        NEW.updated_at = CURRENT_TIMESTAMP;
+    ELSIF TG_OP = 'UPDATE' THEN
+        NEW.updated_at = CURRENT_TIMESTAMP;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger for the properties table
+CREATE TRIGGER set_timestamps_properties
+BEFORE INSERT OR UPDATE ON properties
+FOR EACH ROW
+EXECUTE FUNCTION set_timestamps();
+
+
+-- Create a trigger for the property_images table
+CREATE TRIGGER set_timestamps_property_images
+BEFORE INSERT OR UPDATE ON property_images
+FOR EACH ROW
+EXECUTE FUNCTION set_timestamps();
