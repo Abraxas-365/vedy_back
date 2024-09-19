@@ -45,3 +45,37 @@ pub async fn update_tenant(
 
     Ok(HttpResponse::Ok().json(updated_tenant))
 }
+
+pub async fn get_tenant_by_id(
+    service: web::Data<Arc<Service>>,
+    lucia_service: web::Data<Arc<lucia::Service>>,
+    req_headers: HttpRequest,
+    web::Path(id): web::Path<String>,
+) -> Result<impl Responder, ApiError> {
+    // Extract the Authorization header
+    let basic_auth_header = req_headers
+        .headers()
+        .get("Authorization")
+        .and_then(|header_value| header_value.to_str().ok());
+
+    if basic_auth_header.is_none() {
+        return Err(ApiError::Unauthorized(
+            "Missing Authorization header".into(),
+        ));
+    }
+
+    let session = lucia_service
+        .get_session(basic_auth_header.unwrap())
+        .await?;
+
+    // Ensure the session user_id matches the requested tenant id
+    if session.user_id != id {
+        return Err(ApiError::Unauthorized(
+            "Unauthorized access to tenant data".into(),
+        ));
+    }
+
+    let tenant = service.find_by_user_id(&id).await?;
+
+    Ok(HttpResponse::Ok().json(tenant))
+}
