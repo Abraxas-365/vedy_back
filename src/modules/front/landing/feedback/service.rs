@@ -47,4 +47,19 @@ impl Service {
         filter.add("tenant_id", FilterCondition::eq(tenant_id));
         self.db_repo.find_many(filter, pagination).await
     }
+
+    pub async fn delete_feedback(&self, id: i32, tenant_id: i32) -> Result<Feedback, ApiError> {
+        let deleted_feedback = self.db_repo.delete(id, tenant_id).await?;
+        let images_to_delete = vec![
+            deleted_feedback.customer_image.clone(),
+            deleted_feedback.property_image.clone(),
+        ];
+
+        //Todo: send the errors to a queue
+        if let Err(e) = self.bucket_repo.delete_images(&images_to_delete).await {
+            eprintln!("Failed to delete images from bucket: {:?}", e);
+        }
+
+        Ok(deleted_feedback)
+    }
 }

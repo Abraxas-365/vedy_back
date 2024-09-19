@@ -114,3 +114,23 @@ pub async fn generate_image_presigned_url(
 
     Ok(HttpResponse::Ok().json(PresignedUrlResponse { url }))
 }
+
+pub async fn delete_feedback(
+    service: web::Data<Arc<Service>>,
+    tenant_service: web::Data<Arc<tenant::Service>>,
+    lucia_service: web::Data<Arc<lucia::Service>>,
+    feedback_id: web::Path<i32>,
+    req_headers: HttpRequest,
+) -> Result<HttpResponse, ApiError> {
+    let basic_auth_header = req_headers
+        .headers()
+        .get("Authorization")
+        .and_then(|header_value| header_value.to_str().ok())
+        .ok_or_else(|| ApiError::Unauthorized("Missing Authorization header".into()))?;
+
+    let session = lucia_service.get_session(basic_auth_header).await?;
+    let tenant = tenant_service.find_by_user_id(&session.user_id).await?;
+
+    let deleted_feedback = service.delete_feedback(*feedback_id, tenant.id).await?;
+    Ok(HttpResponse::Ok().json(deleted_feedback))
+}
