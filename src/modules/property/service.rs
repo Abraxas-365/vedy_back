@@ -29,7 +29,7 @@ impl Service {
     pub async fn create(
         &self,
         property: Property,
-        images_urls: Vec<String>,
+        images_urls: &[String],
     ) -> Result<PropertyWithImages, ApiError> {
         let images: Vec<PropertyImage> = images_urls
             .into_iter()
@@ -75,11 +75,15 @@ impl Service {
     pub async fn update_property(
         &self,
         property: Property,
-        property_images: &[PropertyImage],
+        images_urls: &[String],
     ) -> Result<PropertyWithImages, ApiError> {
+        let images: Vec<PropertyImage> = images_urls
+            .into_iter()
+            .map(|url| PropertyImage::new(property.id, &url, false))
+            .collect();
         let new_image = self
             .db_repo
-            .edit_property_images(property.id, property_images)
+            .edit_property_images(property.id, &images)
             .await?;
 
         let new_property = self.db_repo.update_property(property).await?;

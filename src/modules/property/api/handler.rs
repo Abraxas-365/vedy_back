@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::{
     error::ApiError,
     modules::{
-        property::{Property, PropertyImage, Service},
+        property::{Property, Service},
         tenant,
     },
     utils::{database::Pagination, lucia},
@@ -55,7 +55,7 @@ pub struct UpdateProperty {
     pub country: Option<String>,
     pub google_maps_url: Option<String>,
     pub amenities: Option<Vec<String>>,
-    pub images: Vec<PropertyImage>,
+    pub images: Vec<String>,
 }
 
 pub async fn create_property(
@@ -101,7 +101,7 @@ pub async fn create_property(
         req.amenities.clone(),
         req.google_maps_url.as_deref(),
     );
-    let property_with_images = service.create(property, req.images_urls.clone()).await?;
+    let property_with_images = service.create(property, &req.images_urls).await?;
 
     Ok(HttpResponse::Created().json(property_with_images))
 }
@@ -152,11 +152,7 @@ pub async fn update_property(
         amenities: req.amenities.clone(),
     };
 
-    //Todo: Cuando usemos is_primary revisar si solo hay 1 primary, sino devolve error
-    let mut images = req.images.clone();
-    images.iter_mut().for_each(|image| image.is_primary = false);
-
-    let updated_property = service.update_property(property, &images).await?;
+    let updated_property = service.update_property(property, &req.images).await?;
 
     Ok(HttpResponse::Ok().json(updated_property))
 }
