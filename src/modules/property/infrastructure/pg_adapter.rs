@@ -212,10 +212,10 @@ impl DBRepository for PostgresRepository {
 
         let query = format!(
             "SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
-             FROM properties p
-             LEFT JOIN property_images pi ON p.id = pi.property_id
-             WHERE {}
-             LIMIT 1",
+         FROM properties p
+         LEFT JOIN property_images pi ON p.id = pi.property_id
+         WHERE {}
+         LIMIT 1",
             where_clause.replace("id", "p.id")
         );
 
@@ -227,6 +227,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => query_builder.bind(f),
                 Value::String(s) => query_builder.bind(s),
                 Value::Bool(b) => query_builder.bind(b),
+                Value::Json(j) => query_builder.bind(j),
             };
         }
 
@@ -266,11 +267,11 @@ impl DBRepository for PostgresRepository {
 
         let query = format!(
             "SELECT p.*, pi.id as image_id, pi.image_url, pi.is_primary
-         FROM properties p
-         LEFT JOIN property_images pi ON p.id = pi.property_id
-         WHERE {}
-         ORDER BY p.id
-         LIMIT ${} OFFSET ${}",
+     FROM properties p
+     LEFT JOIN property_images pi ON p.id = pi.property_id
+     WHERE {}
+     ORDER BY p.id
+     LIMIT ${} OFFSET ${}",
             where_clause,
             args.len() + 1,
             args.len() + 2
@@ -288,6 +289,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => query_builder.bind(f),
                 Value::String(s) => query_builder.bind(s),
                 Value::Bool(b) => query_builder.bind(b),
+                Value::Json(j) => query_builder.bind(j),
             };
         }
 
@@ -348,6 +350,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => count_query_builder.bind(f),
                 Value::String(s) => count_query_builder.bind(s),
                 Value::Bool(b) => count_query_builder.bind(b),
+                Value::Json(j) => count_query_builder.bind(j),
             };
         }
 

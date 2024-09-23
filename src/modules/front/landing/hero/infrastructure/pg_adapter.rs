@@ -52,6 +52,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => query_builder.bind(f),
                 Value::String(s) => query_builder.bind(s),
                 Value::Bool(b) => query_builder.bind(b),
+                Value::Json(j) => query_builder.bind(j),
             };
         }
 

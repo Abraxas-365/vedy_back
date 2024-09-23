@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -8,6 +8,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Bool(bool),
+    Json(JsonValue),
 }
 
 // Existing implementations
@@ -78,6 +79,13 @@ impl From<u8> for Value {
     }
 }
 
+// New implementation for JsonValue
+impl From<JsonValue> for Value {
+    fn from(v: JsonValue) -> Self {
+        Value::Json(v)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum FilterCondition {
     Eq(Value),
@@ -89,6 +97,8 @@ pub enum FilterCondition {
     Between(Value, Value),
     In(Vec<Value>),
     Like(String),
+    JsonContains(String, Value),
+    JsonExists(String),
 }
 
 #[derive(Default, Clone, Debug)]
@@ -164,6 +174,13 @@ impl Filter {
                     conditions.push(format!("{} LIKE ${}", field, args.len() + 1));
                     args.push(Value::String(pattern.clone()));
                 }
+                FilterCondition::JsonContains(path, value) => {
+                    conditions.push(format!("{}->>{} @> ${}", field, path, args.len() + 1));
+                    args.push(value_to_encode(value));
+                }
+                FilterCondition::JsonExists(path) => {
+                    conditions.push(format!("{}->>{} IS NOT NULL", field, path));
+                }
             }
         }
 
@@ -178,7 +195,13 @@ impl Filter {
 }
 
 fn value_to_encode(value: &Value) -> Value {
-    value.clone()
+    match value {
+        Value::Int(i) => Value::Int(*i),
+        Value::Float(f) => Value::Float(*f),
+        Value::String(s) => Value::String(s.clone()),
+        Value::Bool(b) => Value::Bool(*b),
+        Value::Json(j) => Value::Json(j.clone()),
+    }
 }
 
 // Helper functions to create FilterConditions
@@ -218,9 +241,15 @@ impl FilterCondition {
     pub fn like<T: Into<String>>(pattern: T) -> Self {
         FilterCondition::Like(pattern.into())
     }
-}
 
-// The rest of your code (Pagination and PaginatedRecord) remains unchanged
+    pub fn json_contains<T: Into<Value>>(path: &str, value: T) -> Self {
+        FilterCondition::JsonContains(path.to_string(), value.into())
+    }
+
+    pub fn json_exists(path: &str) -> Self {
+        FilterCondition::JsonExists(path.to_string())
+    }
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Pagination {

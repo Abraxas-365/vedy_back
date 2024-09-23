@@ -90,6 +90,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => count_query_builder.bind(f),
                 Value::String(s) => count_query_builder.bind(s),
                 Value::Bool(b) => count_query_builder.bind(b),
+                Value::Json(j) => count_query_builder.bind(j),
             };
         }
         let total_items: i64 = count_query_builder
@@ -110,6 +111,7 @@ impl DBRepository for PostgresRepository {
                 Value::Float(f) => query_builder.bind(f),
                 Value::String(s) => query_builder.bind(s),
                 Value::Bool(b) => query_builder.bind(b),
+                Value::Json(j) => query_builder.bind(j),
             };
         }
 
