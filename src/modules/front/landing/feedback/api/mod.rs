@@ -11,7 +11,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         web::scope("/feedback")
             .route("", web::post().to(create_feedback))
             .route("", web::put().to(update_feedback))
-            .route("/{tenant_id}", web::get().to(get_tenant_feedbacks))
+            .route("/tenant/{tenant_id}", web::get().to(get_tenant_feedbacks))
             .route(
                 "/image-upload-url",
                 web::get().to(generate_image_presigned_url),
