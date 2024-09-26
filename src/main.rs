@@ -5,9 +5,12 @@ use std::sync::Arc;
 use actix_cors::Cors;
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use modules::{
-    front::landing::{
-        config::{self},
-        feedback, hero,
+    front::{
+        landing::{
+            config::{self},
+            feedback, hero,
+        },
+        social_media,
     },
     property, stats, tenant,
 };
@@ -32,6 +35,7 @@ async fn main() -> std::io::Result<()> {
     let config_service = Arc::new(config::Service::new(repo.clone(), bukcet_service.clone()));
     let feedback_service = Arc::new(feedback::Service::new(repo.clone(), bukcet_service.clone()));
     let stats_service = Arc::new(stats::Service::new(repo.clone()));
+    let social_service = Arc::new(social_media::Service::new(repo.clone()));
     let luci_service = Arc::new(utils::lucia::Service::new(repo.clone()));
 
     log::info!("Starting HTTP server on 0.0.0.0:80...");
@@ -48,11 +52,13 @@ async fn main() -> std::io::Result<()> {
                     .configure(config::config)
                     .configure(feedback::config)
                     .configure(tenant::config)
-                    .configure(stats::config),
+                    .configure(stats::config)
+                    .configure(social_media::config),
             )
             .app_data(web::Data::new(stats_service.clone()))
             .app_data(web::Data::new(luci_service.clone()))
             .app_data(web::Data::new(property_service.clone()))
+            .app_data(web::Data::new(social_service.clone()))
             .app_data(web::Data::new(tenant_service.clone()))
             .app_data(web::Data::new(config_service.clone()))
             .app_data(web::Data::new(feedback_service.clone()))

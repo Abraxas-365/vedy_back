@@ -1,13 +1,10 @@
 use crate::{
     error::ApiError,
     modules::front::social_media::{port::DBRepository, SocialMedia},
+    utils::database::PostgresRepository,
 };
 use async_trait::async_trait;
 use sqlx::Row;
-
-pub struct PostgresRepository {
-    pub pg_pool: sqlx::PgPool,
-}
 
 #[async_trait]
 impl DBRepository for PostgresRepository {
@@ -33,7 +30,7 @@ impl DBRepository for PostgresRepository {
         .bind(&social_media.instagram_url)
         .bind(&social_media.tiktok_url)
         .bind(&social_media.linkedin_url)
-        .fetch_one(&self.pg_pool)
+        .fetch_one(&*self.pg_pool)
         .await
         .map_err(ApiError::DatabaseError)?;
 
@@ -55,7 +52,7 @@ impl DBRepository for PostgresRepository {
             "#,
         )
         .bind(tenant_id)
-        .fetch_one(&self.pg_pool)
+        .fetch_one(&*self.pg_pool)
         .await
         .map_err(|err| match err {
             sqlx::Error::RowNotFound => ApiError::NotFound(format!(
