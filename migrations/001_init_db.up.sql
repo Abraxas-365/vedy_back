@@ -200,3 +200,46 @@ CREATE TABLE stats (
 CREATE INDEX idx_stats_tenant_id ON stats(tenant_id);
 CREATE INDEX idx_stats_event_type ON stats(event_type);
 CREATE INDEX idx_stats_created_at ON stats(created_at);
+
+
+
+
+-- Social Media Links Table
+CREATE TABLE social_media_links (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    facebook_url VARCHAR(255),
+    instagram_url VARCHAR(255),
+    tiktok_url VARCHAR(255),
+    linkedin_url VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Trigger to set timestamps for social_media_links table
+CREATE TRIGGER set_timestamps_social_media_links
+BEFORE INSERT OR UPDATE ON social_media_links
+FOR EACH ROW
+EXECUTE FUNCTION set_timestamps();
+
+-- Create indexes for better query performance
+CREATE INDEX idx_social_media_links_tenant_id ON social_media_links(tenant_id);
+
+
+-- Function to create default social media links with NULL values
+CREATE OR REPLACE FUNCTION create_default_social_media_links()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert default social media links with NULL values
+    INSERT INTO social_media_links (tenant_id, facebook_url, instagram_url, tiktok_url, linkedin_url)
+    VALUES (NEW.id, NULL, NULL, NULL, NULL);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger to call the function when a new tenant is created
+CREATE TRIGGER create_social_media_links_for_new_tenant
+AFTER INSERT ON tenants
+FOR EACH ROW
+EXECUTE FUNCTION create_default_social_media_links();
